@@ -1,32 +1,30 @@
-from fastapi import FastAPI, File, UploadFile
-from PIL import Image
-import io
-import sys
-import os
-
-# Add the src directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
-
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from src.detect import detect_and_count
+import io
+from PIL import Image
+import os
 
 app = FastAPI()
 
 @app.post("/detect")
 async def detect_fruits_vegetables(file: UploadFile = File(...)):
-    # Read and save the uploaded image
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents))
-    image_path = "temp_image.jpg"
-    image.save(image_path)
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        image_path = "temp_image.jpg"
+        image.save(image_path)
 
-    # Perform detection and counting
-    results = detect_and_count(image_path)
+        results = detect_and_count(image_path)
 
-    # Remove the temporary image
-    os.remove(image_path)
+        os.remove(image_path)
 
-    return results
+        if "error" in results:
+            raise HTTPException(status_code=500, detail=results["error"])
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/")
+async def root():
+    return {"message": "Detection was run successully, check the results on postman"}
